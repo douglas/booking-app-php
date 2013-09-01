@@ -1,70 +1,88 @@
+// Validate if the location is valid
+function is_location_valid(element) {
+    return (element['postcode'] && element['street']);
+}
+
 /**
-     *
-     * getLocation width cache
-     */ 
-function autocomplete_getLocation(selector,saveON,limit,isPickup,callback){    
+ *
+ * getLocation width cache
+ */
+function autocomplete_getLocation(selector,saveON,limit,isPickup,callback){
     isPickup = (isPickup?'pickup':isPickup);
-              
-    var cache = {};                   
+
+    var cache = {};
     $( selector ).autocomplete({
         minLength: 2,
-        delay:500,
+        delay:250,
         select: function(event, ui) {
             $(saveON).data("location",ui.item.otherdata);
             $(saveON).val(JSON.stringify(ui.item.otherdata));
-        
+
             if(jQuery.isFunction(callback))
-                callback();   
-         
+                callback();
         },
-        source: function( request, response ) {                        
-            var term = request.term;                        
+        source: function( request, response ) {
+            var term = request.term;
             if ( term in cache ) {
                 response( cache[ term ] );
                 return;
             }
-                        
-            $.post("/",{
+
+            $.post("/", {
                 JSON:true,
                 TYPE:'getLocation',
                 location:term,
                 limit:limit,
                 pickup:isPickup
-            },function(data){                            
-                if(data.status === 'OK' && data.locations.length)
-                {
-                    cache[ term ] = $.map(data.locations, function(item) {
+            },function(data) {
+                var filtered_locations = data.locations.filter(is_location_valid);
+
+                if(data.status === 'OK' && filtered_locations.length){
+                    $(selector).removeClass('ui-autocomplete-loading');
+                    cache[ term ] = $.map(filtered_locations, function(item) {
                         return {
                             label: item.address,
                             value: item.address,
                             otherdata: item
-                        }
-                    });                                 
-                    response($.map(data.locations, function(item) {
+                        };
+                    });
+                    response($.map(filtered_locations, function(item) {
                         return {
                             label: item.address,
                             value: item.address,
                             otherdata: item
-                        }
-                    }))                             
-                }                           
-            }); 
-                     
+                        };
+                    }));
+                }else{
+                    $(selector).removeClass('ui-autocomplete-loading');
+
+                    if(filtered_locations.length === 0){
+                        if(selector == '#journey_location')
+                            $('#ui-id-1').html('<li class="no-results">Please try another address</li>').show();
+
+                        if(selector == '#journey_destination')
+                            $('#ui-id-2').html('<li class="no-results">Please try another address</li>').show();
+                    }
+                }
+            });
+        },
+        response: function(event, ui){
+            $(selector).removeClass('ui-autocomplete-loading');
         }
-    });    
+    });
 }
 
 //VEHICLE TRACKING MAP DETAILS
 var map,marker,pknumb;
 var animationTime = 100;
 $(function(){
-   
+
 
     $.validator.addMethod("notEqual", function(value, element, param) {
         return this.optional(element) || value != param;
     }, "Please specify a different (non-default) value");
 
-            
+
     $.validator.addMethod("NumbersOnly", function(value, element) {
         return this.optional(element) || /^\+?[0-9]+$/i.test(value);
     }, "Phone must contain only numbers and +.");
@@ -72,17 +90,17 @@ $(function(){
 
     jQuery("input.numberOnly").click(function(){
         $(this).select();
-    }).keydown(function(event) {          
-        if ( event.shiftKey || (event.keyCode < 48 || event.keyCode > 57) && (event.keyCode < 96 || event.keyCode > 105 ) && event.keyCode != 8 && event.keyCode != 9 ) 
+    }).keydown(function(event) {
+        if ( event.shiftKey || (event.keyCode < 48 || event.keyCode > 57) && (event.keyCode < 96 || event.keyCode > 105 ) && event.keyCode != 8 && event.keyCode != 9 )
         {
-            event.preventDefault(); 
-        }        
-        $(this).select();               
-    }).keyup(function(event) {         
+            event.preventDefault();
+        }
+        $(this).select();
+    }).keyup(function(event) {
         if($(this).val() == '')
-            $(this).val(0);                 
-    });   
-   
+            $(this).val(0);
+    });
+
 });
 
 
@@ -112,7 +130,7 @@ jQuery.browser={};
                 day= p[1].split(/\D/);
                 for(var i= 0, L= day.length; i<L; i++){
                     day[i]= parseInt(day[i], 10) || 0;
-                };
+                }
                 day[1]-= 1;
                 day= new Date(Date.UTC.apply(Date, day));
                 if(!day.getDate()) return NaN;
@@ -125,11 +143,11 @@ jQuery.browser={};
                 return day;
             }
             return NaN;
-        }
+        };
     }
     else{
         Date.fromISO= function(s){
             return new Date(s);
-        }
+        };
     }
 })
